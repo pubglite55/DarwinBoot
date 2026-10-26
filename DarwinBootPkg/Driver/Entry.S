@@ -49,4 +49,22 @@ ASM_FUNC(DarwinEnter)
   tlbi vmalle1
   dsb sy
   isb
+
+  // Record what we hand the kernel, so the next boot can tell "the loader never
+  // jumped" apart from "the kernel never ran its first instruction". The kernel
+  // writes the same magic at 0x8d3003000 before its own breadcrumbs; note[1] is
+  // its arm_init stage mask, note[2] its start.s checkpoint.
+  //   note[3] = the SCTLR_EL1 the kernel starts with (M/C/I cleared above)
+  //   note[4] = the physical entry point we branch to
+  // The window DarwinBoot allocates starts at 0x8c0004000 and is at least
+  // 256 MiB, so the last page of a 304 MiB window is ordinary DRAM.
+  movz x9, #0x0008, lsl #32
+  movk x9, #0xd300, lsl #16
+  movk x9, #0x3000
+  movz x10, #0x4e4f, lsl #16
+  movk x10, #0x5445
+  str x10, [x9]
+  str x4, [x9, #24]
+  str x1, [x9, #32]
+  dsb sy
   br x1
