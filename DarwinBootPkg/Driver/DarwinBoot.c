@@ -499,7 +499,7 @@ Boot (
   UINTN                           Stride;
   UINT32                          Version;
   UINTN                           Attempt;
-  CHAR8                           CommandLine[1024];
+  CHAR8                           CommandLine[BOOT_LINE_LENGTH];
   UINT64                          Video[6];
 
   (VOID)This;
@@ -626,7 +626,14 @@ Boot (
   Args->MemorySize = WindowSize;
   Args->MemorySizeActual = WindowSize;
   Args->TopOfKernelData = Address + Used;
-  CopyMem (Args->Video, Video, sizeof (Video));
+  //
+  // The kernel's Video is Boot_Video: six uint32. The internal array is UINT64[6]
+  // (GOP, DiagDraw and DarwinEnter all want 64 bits), so narrow per entry -- a
+  // 48-byte CopyMem would push machineType/deviceTreeP/CommandLine 24 bytes late.
+  //
+  for (Index = 0; Index < 6; Index++) {
+    Args->Video[Index] = (UINT32)Video[Index];
+  }
   Args->DeviceTree = Kernel.Base + TreeAddress - Address;
   Args->DeviceTreeLength = (UINT32)TreeSize;
   CopyMem (Args->CommandLine, CommandLine, sizeof (CommandLine));
