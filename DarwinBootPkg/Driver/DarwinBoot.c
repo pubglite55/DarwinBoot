@@ -664,6 +664,27 @@ Boot (
   Print (L"DARWINBOOT: video base=0x%lx display=%lu row=%lu width=%lu height=%lu depth=%lu\n",
          Video[0], Video[1], Video[2], Video[3], Video[4], Video[5]);
   Print (L"DARWINBOOT: command line: %a\n", CommandLine);
+  {
+    //
+    // Prove the breadcrumb page is writable *before* handing off, and say the
+    // readback on screen. If a later boot finds 0xff there instead of this
+    // magic, DRAM is being reinitialised under us and it cannot carry the
+    // record; if it finds the magic with note[5] still zero, the loader died
+    // before Entry.S recorded anything.
+    //
+    volatile UINT64  *Note = (volatile UINT64 *)(UINTN)0x8d3003000ULL;
+
+    Note[0] = 0x4e4f5445ULL;   /* 'ETON' */
+    Note[1] = 0;
+    Note[2] = 0;
+    Note[3] = 0;
+    Note[4] = 0;
+    Note[5] = 0;
+    MemoryFence ();
+    Print (L"DARWINBOOT: breadcrumb 0x8d3003000 readback %lx %lx %lx\n",
+           (UINT64)Note[0], (UINT64)Note[1], (UINT64)Note[5]);
+  }
+
   Print (L"DARWINBOOT: inputs validated; exiting boot services\n");
 
   //

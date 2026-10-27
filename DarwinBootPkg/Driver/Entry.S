@@ -9,6 +9,13 @@ ASM_FUNC(DarwinCurrentEl)
 // PA (0 for none), x5=its size in bytes. EL1 only.
 ASM_FUNC(DarwinEnter)
   msr daifset, #15
+  // Breadcrumb stage 1: we are inside DarwinEnter with interrupts masked.
+  movz x9, #0x0008, lsl #32
+  movk x9, #0xd300, lsl #16
+  movk x9, #0x3000
+  mov w10, #1
+  str w10, [x9, #40]
+  dsb sy
   // Paint the top 1/16 of the framebuffer green (BGRA 0xFF00FF00)
   // before cache maintenance, MMU shutdown and the branch to the kernel.
   cbz x4, 2f
@@ -40,12 +47,26 @@ ASM_FUNC(DarwinEnter)
   ic iallu
   dsb sy
   isb
+  // Breadcrumb stage 2: caches cleaned, about to read SCTLR.
+  movz x9, #0x0008, lsl #32
+  movk x9, #0xd300, lsl #16
+  movk x9, #0x3000
+  mov w10, #2
+  str w10, [x9, #40]
+  dsb sy
   mrs x4, sctlr_el1
   bic x4, x4, #1
   bic x4, x4, #4
   bic x4, x4, #0x1000
   msr sctlr_el1, x4
   isb
+  // Breadcrumb stage 3: SCTLR written (MMU off) and it did not fault.
+  movz x9, #0x0008, lsl #32
+  movk x9, #0xd300, lsl #16
+  movk x9, #0x3000
+  mov w10, #3
+  str w10, [x9, #40]
+  dsb sy
   tlbi vmalle1
   dsb sy
   isb
